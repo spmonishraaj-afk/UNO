@@ -916,7 +916,7 @@ let myId = null, myName = '', roomCode = '', isHost = false;
 let gameState = null, players = [], pendingCard = null, pendingCardEl = null;
 let chatOpen = false, unreadChat = 0;
 let winsNeeded = 1, wins = {}, roundNumber = 1, bots = {};
-let turnTimerInterval=null, serverClockOffset=0, lastTickSecond=null;
+let turnTimerInterval=null, serverClockOffset=0, lastTickSecond=null, timeoutRequestedForTurn='';
 
 // Wins needed info
 const WINS_INFO = { 4: 1, 8: 3, 13: 5 };
@@ -1314,9 +1314,14 @@ function updateTurnTimerDisplay(){
   const seconds=Math.max(0,Math.ceil(remainingMs/1000));
   el.textContent=seconds+'s';
   el.classList.toggle('low',seconds<=5);
+  const turnKey=`${gameState.currentPlayer}:${gameState.turnDeadline}`;
   if(seconds>0&&seconds<=5&&seconds!==lastTickSecond&&gameState.currentPlayer===myId){
     SFX.tick();
     lastTickSecond=seconds;
+  }
+  if(seconds===0&&gameState.currentPlayer===myId&&timeoutRequestedForTurn!==turnKey){
+    timeoutRequestedForTurn=turnKey;
+    socket.emit('turn_timeout');
   }
 }
 
