@@ -905,8 +905,7 @@ function getServerUrl(){
     const isLocal=location.hostname==='localhost'||location.hostname==='127.0.0.1';
     if(location.port==='3001'||location.hostname.includes('onrender.com')) return location.origin;
     if(isLocal) return RENDER_SERVER_URL;
-    const protocol=location.protocol;
-    return `${protocol}//${location.hostname}:3001`;
+    return RENDER_SERVER_URL;
   }
   return RENDER_SERVER_URL;
 }
