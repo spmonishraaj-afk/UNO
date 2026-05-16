@@ -62,6 +62,8 @@ function migratePlayerId(room, oldId, newId) {
     room.wins[newId] = room.wins[oldId];
     delete room.wins[oldId];
   }
+
+  if (room.pendingSwap === oldId) room.pendingSwap = newId;
 }
 
 function sanitizeState(state, forPlayerId, room) {
@@ -106,19 +108,25 @@ function startTurnTimer(room, code) {
   const playerId = currentPlayer(room.game);
   room.turnDeadline = Date.now() + TURN_TIMER_MS;
   room.turnTimer = setTimeout(() => {
-    if (!rooms[code] || !room.game || room.game.winner) return;
-    if (currentPlayer(room.game) !== playerId) return;
-    const result = autoDrawForTimeout(room.game, playerId);
-    if (result.error) return;
-    const action = {
-      type: result.drewStack ? 'timer_drew_stack' : 'timer_draw',
-      playerId,
-      count: result.drewStack || 1,
-    };
-    startTurnTimer(room, code);
-    broadcastState(room, action);
-    scheduleBotTurn(room, code);
+    processTurnTimeout(room, code, playerId);
   }, TURN_TIMER_MS + 150);
+}
+
+function processTurnTimeout(room, code, playerId) {
+  if (!rooms[code] || !room.game || room.game.winner) return false;
+  if (currentPlayer(room.game) !== playerId) return false;
+  if (room.turnDeadline && Date.now() + 500 < room.turnDeadline) return false;
+  const result = autoDrawForTimeout(room.game, playerId);
+  if (result.error) return false;
+  const action = {
+    type: result.drewStack ? 'timer_drew_stack' : 'timer_draw',
+    playerId,
+    count: result.drewStack || 1,
+  };
+  startTurnTimer(room, code);
+  broadcastState(room, action);
+  scheduleBotTurn(room, code);
+  return true;
 }
 
 function broadcastState(room, lastAction) {
@@ -165,6 +173,20 @@ function performBotSwapIfNeeded(room, code, playerId, result) {
     p2: target.name,
   });
   return true;
+}
+
+function startPendingSwap(room, code, playerId) {
+  room.pendingSwap = playerId;
+  clearTurnTimer(room);
+  const targets = room.players.filter(p => p.id !== playerId);
+  io.to(playerId).emit('needs_swap', { players: targets });
+}
+
+function finishPendingSwap(room, code) {
+  room.pendingSwap = null;
+  startTurnTimer(room, code);
+  if (autoDrawStackIfBlocked(room, code)) return;
+  scheduleBotTurn(room, code);
 }
 
 // Bot takes a turn after a short delay
@@ -325,7 +347,10 @@ io.on('connection', (socket) => {
       });
       broadcastState(room, { type: 'rejoin', playerId: socket.id });
       io.to(code).emit('player_rejoined', { playerId: socket.id, name: originalName, players: room.players });
-      if (!room.game.winner && currentPlayer(room.game) === socket.id) startTurnTimer(room, code);
+      if (room.pendingSwap === socket.id) {
+        socket.emit('needs_swap', { players: room.players.filter(p => p.id !== socket.id) });
+      }
+      if (!room.pendingSwap && !room.game.winner && currentPlayer(room.game) === socket.id) startTurnTimer(room, code);
       return;
     }
     if (room.players.length >= 13) return socket.emit('error', { message: 'Room is full (max 13)' });
@@ -374,6 +399,7 @@ io.on('connection', (socket) => {
     const code = socket.data.roomCode;
     const room = rooms[code];
     if (!room || !room.game) return;
+    if (room.pendingSwap) return socket.emit('play_error', { message: 'Finish the hand swap first.' });
     const result = playCard(room.game, socket.id, cardIndex, chosenColor);
     if (result.error) {
       socket.emit('play_error', { message: result.error, penalty: result.penalty || false });
@@ -393,7 +419,8 @@ io.on('connection', (socket) => {
       shuffledHands: result.shuffledHands,
     });
     if (result.needsSwap) {
-      socket.emit('needs_swap', { players: room.players.filter(p => p.id !== socket.id) });
+      startPendingSwap(room, code, socket.id);
+      return;
     }
     if (room.game.winner) { handleRoundEnd(room, code); return; }
     if (autoDrawStackIfBlocked(room, code)) return;
@@ -404,6 +431,7 @@ io.on('connection', (socket) => {
     const code = socket.data.roomCode;
     const room = rooms[code];
     if (!room || !room.game) return;
+    if (room.pendingSwap) return socket.emit('error', { message: 'Finish the hand swap first.' });
     const result = drawCard(room.game, socket.id);
     if (result.error) return socket.emit('error', { message: result.error });
     startTurnTimer(room, code);
@@ -411,10 +439,19 @@ io.on('connection', (socket) => {
     scheduleBotTurn(room, code);
   });
 
+  socket.on('turn_timeout', () => {
+    const code = socket.data.roomCode;
+    const room = rooms[code];
+    if (!room || !room.game) return;
+    if (room.pendingSwap) return;
+    processTurnTimeout(room, code, socket.id);
+  });
+
   socket.on('jump_in', ({ cardIndex }) => {
     const code = socket.data.roomCode;
     const room = rooms[code];
     if (!room || !room.game) return;
+    if (room.pendingSwap) return socket.emit('error', { message: 'Finish the hand swap first.' });
     const result = jumpIn(room.game, socket.id, cardIndex);
     if (result.error) return socket.emit('error', { message: result.error });
     const pname = room.players.find(p => p.id === socket.id)?.name;
@@ -430,11 +467,13 @@ io.on('connection', (socket) => {
     const code = socket.data.roomCode;
     const room = rooms[code];
     if (!room || !room.game) return;
+    if (room.pendingSwap && room.pendingSwap !== socket.id) return socket.emit('error', { message: 'Another player is choosing a hand swap.' });
     const result = swapHands(room.game, socket.id, targetId);
     if (result.error) return socket.emit('error', { message: result.error });
     const tname = room.players.find(p => p.id === targetId)?.name;
     io.to(code).emit('hands_swapped', { p1: socket.data.name, p2: tname });
     broadcastState(room, { type: 'swap', playerId: socket.id, targetId });
+    if (room.pendingSwap === socket.id) finishPendingSwap(room, code);
   });
 
   socket.on('call_uno', () => {
@@ -485,6 +524,12 @@ io.on('connection', (socket) => {
         players: room.players,
       });
       console.log(`${leftName} disconnected, replaced by bot`);
+
+      if (room.pendingSwap === leftId) {
+        performBotSwapIfNeeded(room, code, leftId, { needsSwap: true });
+        finishPendingSwap(room, code);
+        return;
+      }
 
       // If it's the bot's turn right now, schedule bot move
       if (!room.game.winner && currentPlayer(room.game) === leftId) {
