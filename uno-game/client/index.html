@@ -896,8 +896,22 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-const SERVER_URL = 'http://localhost:3001'; // ← change to your Render URL after deploy
-const socket = io(SERVER_URL, { transports: ['websocket','polling'] });
+const RENDER_SERVER_URL = 'https://uno-ew3r.onrender.com';
+function getServerUrl(){
+  const params=new URLSearchParams(location.search);
+  const fromQuery=params.get('server');
+  if(fromQuery) return fromQuery.replace(/\/$/,'');
+  if(location.protocol==='http:'||location.protocol==='https:'){
+    const isLocal=location.hostname==='localhost'||location.hostname==='127.0.0.1';
+    if(location.port==='3001'||location.hostname.includes('onrender.com')) return location.origin;
+    if(isLocal) return RENDER_SERVER_URL;
+    const protocol=location.protocol;
+    return `${protocol}//${location.hostname}:3001`;
+  }
+  return RENDER_SERVER_URL;
+}
+const SERVER_URL = getServerUrl();
+const socket = io(SERVER_URL, { transports: ['websocket','polling'], reconnectionAttempts: 8 });
 
 let myId = null, myName = '', roomCode = '', isHost = false;
 let gameState = null, players = [], pendingCard = null, pendingCardEl = null;
@@ -934,7 +948,16 @@ function switchTab(tab){
 }
 function setError(id,msg){document.getElementById(id).textContent=msg;}
 
-socket.on('connect',()=>{myId=socket.id;});
+socket.on('connect',()=>{
+  myId=socket.id;
+  setError('lobby-error','');
+  setError('waiting-error','');
+});
+socket.on('connect_error',()=>{
+  const msg=`Cannot connect to game server at ${SERVER_URL}. On mobile, open the computer/server IP address, not localhost.`;
+  setError('lobby-error',msg);
+  setError('waiting-error',msg);
+});
 socket.on('error',({message})=>{SFX.error();setError('lobby-error',message);setError('waiting-error',message);});
 socket.on('play_error',({message,penalty})=>{
   if(penalty) SFX.penalty(); else SFX.error();
@@ -946,6 +969,7 @@ socket.on('play_error',({message,penalty})=>{
 function createRoom(){
   const name=document.getElementById('create-name').value.trim();
   if(!name) return setError('lobby-error','Enter your name!');
+  if(!socket.connected) return setError('lobby-error',`Connecting to server... If this stays, open ${SERVER_URL} on mobile.`);
   myName=name; isHost=true;
   socket.emit('create_room',{name});
 }
@@ -954,6 +978,7 @@ function joinRoom(){
   const code=document.getElementById('join-code').value.trim().toUpperCase();
   if(!name) return setError('lobby-error','Enter your name!');
   if(!code) return setError('lobby-error','Enter room code!');
+  if(!socket.connected) return setError('lobby-error',`Connecting to server... If this stays, open ${SERVER_URL} on mobile.`);
   myName=name;
   socket.emit('join_room',{name,code});
 }
