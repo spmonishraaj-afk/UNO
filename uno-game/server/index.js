@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const { createGame, playCard, drawCard, autoDrawForTimeout, jumpIn, swapHands, callUno, catchUno, currentPlayer, botPickCard, playerHasStackCard } = require('./gameLogic');
@@ -7,6 +8,7 @@ const { createGame, playCard, drawCard, autoDrawForTimeout, jumpIn, swapHands, c
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, '..', 'client')));
 
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
@@ -501,6 +503,7 @@ io.on('connection', (socket) => {
   });
 });
 
-app.get('/', (req, res) => res.json({ status: 'UNO server running 🃏' }));
+app.get('/health', (req, res) => res.json({ status: 'UNO server running' }));
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'client', 'index.html')));
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`Server on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`Server on port ${PORT}`));
