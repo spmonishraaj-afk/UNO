@@ -752,12 +752,12 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div style="border-top:1px solid rgba(255,255,255,.06);margin:8px 0 8px"></div>
       <div class="settings-title">🏠 House Rules</div>
       <div class="setting-row">
-        <div><div class="setting-label">Wrong Card Penalty <span class="rule-badge badge-on" id="badge-wrongCardPenalty">ON</span></div><div class="setting-desc">Wrong card → draw 2 penalty</div></div>
-        <label class="toggle"><input type="checkbox" id="rule-wrongCardPenalty" checked onchange="toggleRule('wrongCardPenalty',this.checked)"/><span class="toggle-slider"></span></label>
+        <div><div class="setting-label">Wrong Card Penalty <span class="rule-badge badge-off" id="badge-wrongCardPenalty">OFF</span></div><div class="setting-desc">Wrong card → draw 2 penalty</div></div>
+        <label class="toggle"><input type="checkbox" id="rule-wrongCardPenalty" onchange="toggleRule('wrongCardPenalty',this.checked)"/><span class="toggle-slider"></span></label>
       </div>
       <div class="setting-row">
-        <div><div class="setting-label">Stack Draw <span class="rule-badge badge-on" id="badge-stackDraw">ON</span></div><div class="setting-desc">+2 stacks with +2/+4; +4 stacks with +4 only</div></div>
-        <label class="toggle"><input type="checkbox" id="rule-stackDraw" checked onchange="toggleRule('stackDraw',this.checked)"/><span class="toggle-slider"></span></label>
+        <div><div class="setting-label">Stack Draw <span class="rule-badge badge-off" id="badge-stackDraw">OFF</span></div><div class="setting-desc">+2 stacks with +2/+4; +4 stacks with +4 only</div></div>
+        <label class="toggle"><input type="checkbox" id="rule-stackDraw" onchange="toggleRule('stackDraw',this.checked)"/><span class="toggle-slider"></span></label>
       </div>
       <div class="setting-row">
         <div><div class="setting-label">Jump-In <span class="rule-badge badge-off" id="badge-jumpIn">OFF</span></div><div class="setting-desc">Same card = jump in out of turn</div></div>
@@ -770,6 +770,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
       <div class="setting-row">
         <div><div class="setting-label">Zero Rotate <span class="rule-badge badge-off" id="badge-zeroRotate">OFF</span></div><div class="setting-desc">0 = rotate all hands right</div></div>
         <label class="toggle"><input type="checkbox" id="rule-zeroRotate" onchange="toggleRule('zeroRotate',this.checked)"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="setting-row">
+        <div><div class="setting-label">Shuffle / Swap Cards <span class="rule-badge badge-off" id="badge-specialWilds">OFF</span></div><div class="setting-desc">Adds Shuffle Hands and Swap Hands wild cards</div></div>
+        <label class="toggle"><input type="checkbox" id="rule-specialWilds" onchange="toggleRule('specialWilds',this.checked)"/><span class="toggle-slider"></span></label>
       </div>
     </div>
 
@@ -984,15 +988,17 @@ function joinRoom(){
 
 socket.on('room_created',({code,players:pl,settings})=>{
   roomCode=code; players=pl;
+  applyHostSettings(settings);
   showWaitingRoom(pl,true);
   document.getElementById('display-code').textContent=code;
   updateWinsInfo(pl.length);
 });
 socket.on('room_joined',({code,players:pl,settings})=>{
   roomCode=code; players=pl;
-  showWaitingRoom(pl,false);
+  isHost=pl[0]?.id===myId;
+  showWaitingRoom(pl,isHost);
   document.getElementById('display-code').textContent=code;
-  updateGuestSettings(settings);
+  if(!isHost) updateGuestSettings(settings);
   updateWinsInfo(pl.length);
 });
 socket.on('player_joined',({players:pl})=>{
@@ -1021,6 +1027,7 @@ socket.on('player_rejoined',({playerId,name,players:pl})=>{
   if(gameState) renderGame();
 });
 socket.on('settings_updated',(settings)=>{
+  if(isHost) applyHostSettings(settings);
   if(!isHost) updateGuestSettings(settings);
 });
 
@@ -1064,9 +1071,23 @@ function toggleRule(rule,val){
   if(badge){badge.textContent=val?'ON':'OFF';badge.className='rule-badge '+(val?'badge-on':'badge-off');}
   socket.emit('update_settings',{houseRules:{[rule]:val}});
 }
+function applyHostSettings(s){
+  if(!s)return;
+  if(s.startingCards) {
+    document.querySelectorAll('.card-count-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.count)===s.startingCards));
+  }
+  const rules=s.houseRules||{};
+  ['wrongCardPenalty','stackDraw','jumpIn','sevenSwap','zeroRotate','specialWilds'].forEach(rule=>{
+    const enabled=!!rules[rule];
+    const input=document.getElementById('rule-'+rule);
+    const badge=document.getElementById('badge-'+rule);
+    if(input) input.checked=enabled;
+    if(badge){badge.textContent=enabled?'ON':'OFF';badge.className='rule-badge '+(enabled?'badge-on':'badge-off');}
+  });
+}
 function updateGuestSettings(s){
   const rules=s.houseRules||{};
-  const ruleNames={wrongCardPenalty:'Wrong Card Penalty',stackDraw:'Stack Draw',jumpIn:'Jump-In',sevenSwap:'Seven Swap',zeroRotate:'Zero Rotate'};
+  const ruleNames={wrongCardPenalty:'Wrong Card Penalty',stackDraw:'Stack Draw',jumpIn:'Jump-In',sevenSwap:'Seven Swap',zeroRotate:'Zero Rotate',specialWilds:'Shuffle / Swap Cards'};
   let html=`<div>Starting Cards: <b style="color:var(--yellow)">${s.startingCards}</b></div>`;
   html+='<div style="margin-top:5px">House Rules: ';
   const on=Object.entries(rules).filter(([k,v])=>v).map(([k])=>ruleNames[k]||k);
@@ -1093,6 +1114,7 @@ socket.on('game_started',({state,players:pl,winsNeeded:wn})=>{
   document.getElementById('waiting-screen').classList.add('hidden');
   document.getElementById('game-screen').classList.add('active');
   document.getElementById('round-overlay').classList.add('hidden');
+  document.getElementById('win-overlay').classList.add('hidden');
   renderGame();
   SFX.gameStart();
   showToast('Match started! First to '+winsNeeded+' win'+(winsNeeded>1?'s':'')+'! 🎮','green');
@@ -1107,6 +1129,7 @@ socket.on('game_rejoined',({code,state,players:pl,winsNeeded:wn})=>{
   document.getElementById('waiting-screen').classList.add('hidden');
   document.getElementById('game-screen').classList.add('active');
   document.getElementById('round-overlay').classList.add('hidden');
+  document.getElementById('win-overlay').classList.add('hidden');
   renderGame();
   showToast('Rejoined the game!','green');
 });
@@ -1161,7 +1184,7 @@ function handleActionToast(a){
     if(isBot) SFX.botPlay(); else if(!isMe) SFX.forCard(a.card);
     if(a.shuffledHands){
       SFX.rotate();
-      showToast(`${pname} shifted everyone's hands!`,'yellow');
+      showToast(`${pname} shuffled everyone's hands!`,'yellow');
     } else if(a.rotated){
       SFX.rotate();
       showToast('Hands rotated! 🔄','yellow');
