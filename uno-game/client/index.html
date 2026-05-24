@@ -262,21 +262,52 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   gap:var(--hand-gap);
   max-height:var(--hand-max-h);
   overflow-y:auto;padding:4px 6px;
+  align-content:center;
+  --hand-card-w:var(--card-w);
+  --hand-card-h:var(--card-h);
+  --hand-card-fs:var(--card-fs);
+  --hand-card-corner-fs:var(--card-corner-fs);
+}
+.hand-cards.hand-fit{
+  overflow:hidden;
+  gap:var(--fit-hand-gap,2px);
+  max-height:var(--fit-hand-max-h,44dvh);
+}
+.hand-cards.hand-many,
+.hand-cards.hand-full{
+  overflow:hidden;
+  align-items:center;
+}
+.hand-cards.hand-many{
+  gap:4px;
+  max-height:min(40dvh,190px);
+  --hand-card-w:clamp(38px,8vw,58px);
+  --hand-card-h:calc(var(--hand-card-w) * 1.44);
+  --hand-card-fs:calc(var(--hand-card-w) * .52);
+  --hand-card-corner-fs:calc(var(--hand-card-w) * .21);
+}
+.hand-cards.hand-full{
+  gap:2px;
+  max-height:min(44dvh,170px);
+  --hand-card-w:clamp(28px,8.4vw,48px);
+  --hand-card-h:calc(var(--hand-card-w) * 1.44);
+  --hand-card-fs:calc(var(--hand-card-w) * .5);
+  --hand-card-corner-fs:calc(var(--hand-card-w) * .2);
 }
 
 /* PLAYER CARDS */
 .player-card{
-  width:var(--card-w);height:var(--card-h);
+  width:var(--hand-card-w);height:var(--hand-card-h);
   border-radius:9px;
   display:flex;align-items:center;justify-content:center;
-  font-family:'Boogaloo',cursive;font-size:var(--card-fs);
+  font-family:'Boogaloo',cursive;font-size:var(--hand-card-fs);
   color:white;cursor:pointer;position:relative;
   transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s,opacity .2s;
   box-shadow:0 8px 16px rgba(0,0,0,.4),inset 0 0 0 1px rgba(0,0,0,.18);
   border:2.5px solid #f9f8ef;
   overflow:hidden;flex-shrink:0;
 }
-.player-card .card-corner{position:absolute;font-size:var(--card-corner-fs);font-family:'Boogaloo',cursive;line-height:.9;color:#fff;-webkit-text-stroke:.8px #111;text-shadow:1.2px 1.2px 0 #111;z-index:2;text-align:center;min-width:12px}
+.player-card .card-corner{position:absolute;font-size:var(--hand-card-corner-fs);font-family:'Boogaloo',cursive;line-height:.9;color:#fff;-webkit-text-stroke:.8px #111;text-shadow:1.2px 1.2px 0 #111;z-index:2;text-align:center;min-width:12px}
 .player-card .card-corner.tl{top:4px;left:6px}
 .player-card .card-corner.br{bottom:4px;right:6px;transform:rotate(180deg)}
 .player-card .card-oval{display:none}
@@ -305,212 +336,101 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 /* ======================================================
    ACTION BUTTONS
 ====================================================== */
-.draw-pile::after{font-size:25px;color:#f3df36;text-shadow:2px 2px 0 #111,-1px -1px 0 #111,1px -1px 0 #111,-1px 1px 0 #111;transform:rotate(-24deg)}
+.draw-pile::after{font-size:clamp(18px,4vw,26px);color:#f3df36;text-shadow:2px 2px 0 #111,-1px -1px 0 #111,1px -1px 0 #111,-1px 1px 0 #111;transform:rotate(-24deg);z-index:1}
 .opp-card-back{position:relative;background:#111;border:1px solid #f5f1e8;overflow:hidden}
 .opp-card-back::before{content:'';position:absolute;inset:2px 1px;border-radius:50%;background:#df1f2f;transform:rotate(-25deg)}
-.top-card,.player-card{border-color:#f5f1e8;border-radius:6px;background-clip:padding-box}
-.top-card::before,.player-card::before{inset:7px -13px;border-radius:50%;background:#f8f7ef;transform:rotate(-25deg);box-shadow:none}
-.card-wild::before{inset:10px 12px;border-radius:50%;background:conic-gradient(from 0deg,#d72836 0 25%,#236fb7 0 50%,#f0ce33 0 75%,#42a836 0);transform:rotate(28deg);box-shadow:inset 0 0 0 2px #f8f7ef}
-.player-card.card-wild::before{inset:8px 9px}
-.card-wild4::before{background:#f8f7ef}
-.wild-four-stack{position:relative;z-index:2;width:42px;height:50px;transform:rotate(-5deg)}
-.player-card .wild-four-stack{width:32px;height:38px}
-.wild-four-stack span{position:absolute;width:17px;height:29px;border-radius:3px;border:1.5px solid rgba(20,20,20,.75);box-shadow:1px 2px 0 rgba(0,0,0,.45)}
-.player-card .wild-four-stack span{width:13px;height:22px;border-radius:2px;border-width:1px}
-.wild-four-stack .wfs-green{left:1px;bottom:2px;background:#75b843}
-.wild-four-stack .wfs-blue{left:9px;top:5px;background:#2b83c6}
-.wild-four-stack .wfs-red{left:20px;bottom:6px;background:#d91f36}
-.wild-four-stack .wfs-yellow{right:1px;top:0;background:#f4d33b}
-.draw-stack-symbol{position:relative;z-index:2;width:38px;height:46px;transform:rotate(14deg)}
-.player-card .draw-stack-symbol{width:29px;height:35px}
-.draw-stack-symbol span{position:absolute;width:18px;height:31px;border-radius:3px;border:2px solid #f8f7ef;box-shadow:1.5px 2px 0 rgba(0,0,0,.58),inset 0 0 0 1px rgba(0,0,0,.48)}
-.player-card .draw-stack-symbol span{width:14px;height:24px;border-width:1.5px;border-radius:2px}
-.draw-stack-symbol .dss-back{left:6px;top:5px;opacity:.95}
-.draw-stack-symbol .dss-front{right:5px;bottom:5px}
-.card-blue .draw-stack-symbol span,.card-red .draw-stack-symbol span{background:#236fb7}
-.card-red .draw-stack-symbol span{background:#d91f36}
-.card-yellow .draw-stack-symbol span{background:#f0ce33}
-.card-green .draw-stack-symbol span{background:#42a836}
-.card-wild4 .wild-four-stack{filter:drop-shadow(1px 2px 0 rgba(0,0,0,.55))}
 
-/* UNO-style card face */
-.top-card,.player-card{
-  border-radius:6px;
-  border:2px solid #f4f4ee;
-  box-shadow:0 3px 0 rgba(0,0,0,.16),0 7px 12px rgba(0,0,0,.24);
-  background-clip:padding-box;
-}
-.player-card{border-width:2px;box-shadow:0 2px 0 rgba(0,0,0,.16),0 5px 9px rgba(0,0,0,.24)}
-.top-card::before,.player-card::before{
-  content:'';
-  position:absolute;
-  inset:9px -30px;
-  border:3px solid rgba(255,255,255,.95);
-  border-radius:50%;
-  background:transparent;
-  transform:rotate(-18deg);
-  box-shadow:none;
-  z-index:0;
-}
-.player-card::before{inset:7px -25px;border-width:2.5px}
-.top-card::after,.player-card::after{
-  background:linear-gradient(120deg,rgba(255,255,255,.1),rgba(255,255,255,0) 36%,rgba(0,0,0,0) 70%,rgba(0,0,0,.1));
-}
-.top-card .card-corner,.player-card .card-corner{
-  color:#f8f8f4;
-  font-weight:900;
-  -webkit-text-stroke:1px #111;
-  text-shadow:1px 1.5px 0 #111;
-}
-.top-card .card-corner.tl{top:4px;left:6px}
-.top-card .card-corner.br{bottom:4px;right:6px}
-.player-card .card-corner.tl{top:2px;left:4px}
-.player-card .card-corner.br{bottom:2px;right:4px}
-.top-card .card-value,.player-card .card-value,
-.top-card .card-symbol,.player-card .card-symbol{
-  color:#f8f8f4;
-  font-weight:900;
-  -webkit-text-stroke:2.4px #111;
-  text-shadow:1.8px 3px 0 #111;
-  z-index:2;
-}
-.player-card .card-value,.player-card .card-symbol{
-  -webkit-text-stroke:1.7px #111;
-  text-shadow:1.1px 2.2px 0 #111;
-}
+/* UNO realistic card face */
+.top-card,.player-card{border-radius:8px;border:2.5px solid #f4f4ee;box-shadow:0 3px 0 rgba(0,0,0,.22),0 7px 14px rgba(0,0,0,.32);background-clip:padding-box}
+.player-card{border-width:2px;box-shadow:0 2px 0 rgba(0,0,0,.18),0 5px 10px rgba(0,0,0,.28)}
+
+/* Oval ring — % based so it scales with card size */
+.top-card::before,.player-card::before{content:'';position:absolute;inset:8% -18%;border:3px solid rgba(255,255,255,.9);border-radius:50%;background:transparent;transform:rotate(-20deg);box-shadow:none;z-index:0}
+.player-card::before{border-width:2.5px}
+
+/* Gloss overlay */
+.top-card::after,.player-card::after{background:linear-gradient(120deg,rgba(255,255,255,.12),rgba(255,255,255,0) 36%,rgba(0,0,0,0) 70%,rgba(0,0,0,.1))}
+
+/* Corner labels */
+.top-card .card-corner,.player-card .card-corner{color:#f8f8f4;font-weight:900;-webkit-text-stroke:1px #111;text-shadow:1px 1.5px 0 #111}
+.top-card .card-corner.tl{top:5px;left:7px}
+.top-card .card-corner.br{bottom:5px;right:7px}
+.player-card .card-corner.tl{top:3px;left:5px}
+.player-card .card-corner.br{bottom:3px;right:5px}
+
+/* Value/symbol */
+.top-card .card-value,.player-card .card-value,.top-card .card-symbol,.player-card .card-symbol{color:#f8f8f4;font-weight:900;-webkit-text-stroke:2.4px #111;text-shadow:1.8px 3px 0 #111;z-index:2}
+.player-card .card-value,.player-card .card-symbol{-webkit-text-stroke:1.7px #111;text-shadow:1.1px 2.2px 0 #111}
+
+/* Colors */
 .card-red{background:#df0909}
 .card-green{background:#2c961c}
 .card-blue{background:#1165b4}
 .card-yellow{background:#eccc00}
 .card-wild{background:#111}
-.card-wild::before{
-  inset:18px 16px;
-  border:0;
-  background:conic-gradient(from -35deg,#eccc00 0 25%,#1165b4 0 50%,#df0909 0 75%,#2c961c 0);
-  transform:rotate(-34deg);
-}
-.player-card.card-wild::before{inset:13px 11px}
+.card-wild::before{inset:16% 14%;border:0;background:conic-gradient(from -35deg,#eccc00 0 25%,#1165b4 0 50%,#df0909 0 75%,#2c961c 0);transform:rotate(-34deg);border-radius:50%}
+.player-card.card-wild::before{inset:12% 10%}
 .card-wild4::before{background:transparent}
-.draw-stack-symbol{transform:rotate(-3deg);filter:drop-shadow(1.5px 2px 0 #111)}
-.draw-stack-symbol span{
-  background:#dfe7e9!important;
-  border:2.5px solid #111;
-  box-shadow:none;
-}
-.player-card .draw-stack-symbol span{border-width:1.8px}
-.wild-four-stack span{
-  border-color:#111;
-  box-shadow:1px 1.8px 0 #111;
-}
+
+/* Draw stack symbol */
+.draw-stack-symbol{position:relative;z-index:2;width:38px;height:46px;transform:rotate(-3deg);filter:drop-shadow(1.5px 2px 0 #111)}
+.player-card .draw-stack-symbol{width:29px;height:35px}
+.draw-stack-symbol span{position:absolute;width:18px;height:31px;border-radius:3px;background:#dfe7e9!important;border:2.5px solid #111;box-shadow:none}
+.player-card .draw-stack-symbol span{width:14px;height:24px;border-width:1.8px;border-radius:2px}
+.draw-stack-symbol .dss-back{left:6px;top:5px;opacity:.95}
+.draw-stack-symbol .dss-front{right:5px;bottom:5px}
+
+/* Wild 4 stack */
+.wild-four-stack{position:relative;z-index:2;width:42px;height:50px;transform:rotate(-5deg)}
+.player-card .wild-four-stack{width:32px;height:38px}
+.wild-four-stack span{position:absolute;width:17px;height:29px;border-radius:3px;border-color:#111;box-shadow:1px 1.8px 0 #111}
+.player-card .wild-four-stack span{width:13px;height:22px;border-radius:2px;border-width:1px}
+.wild-four-stack .wfs-green{left:1px;bottom:2px;background:#75b843}
+.wild-four-stack .wfs-blue{left:9px;top:5px;background:#2b83c6}
+.wild-four-stack .wfs-red{left:20px;bottom:6px;background:#d91f36}
+.wild-four-stack .wfs-yellow{right:1px;top:0;background:#f4d33b}
+.card-wild4 .wild-four-stack{filter:drop-shadow(1px 2px 0 rgba(0,0,0,.55))}
+
 .card-action .card-value{font-size:.96em}
 .card-draw2 .card-corner,.card-wild4 .card-corner{font-size:.78em}
 .card-draw2 .draw-stack-symbol{margin-top:4px}
-.card-shufflehands::before{
-  inset:8px -16px;
-  border:0;
-  background:#f4f4ee;
-}
-.shuffle-hands-symbol{
-  position:relative;
-  z-index:2;
-  width:72%;
-  height:72%;
-  border-radius:50%;
-  background:#f4f4ee;
-  color:#242424;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  font-family:'Boogaloo',cursive;
-  font-size:.34em;
-  line-height:.9;
-  transform:rotate(-25deg);
-  box-shadow:none;
-  -webkit-text-stroke:0;
-  text-shadow:none;
-}
-.shuffle-hands-symbol::before{
-  content:'☞ ☜';
-  position:absolute;
-  top:13%;
-  left:0;
-  right:0;
-  font-size:1.9em;
-  color:#222;
-}
-.shuffle-hands-symbol span{
-  display:block;
-  margin-top:28%;
-  transform:rotate(-8deg);
-}
-.shuffle-corner{
-  position:absolute;
-  z-index:3;
-  width:21px;
-  height:21px;
-  border-radius:50%;
-  border:1.5px solid #f4f4ee;
-  overflow:hidden;
-  background:conic-gradient(#eccc00 0 25%,#1165b4 0 50%,#df0909 0 75%,#2c961c 0);
-}
+
+/* Shuffle hands */
+.card-shufflehands::before{inset:8% -16%;border:0;background:#f4f4ee}
+.shuffle-hands-symbol{position:relative;z-index:2;width:72%;height:72%;border-radius:50%;background:#f4f4ee;color:#242424;display:flex;align-items:center;justify-content:center;text-align:center;font-family:'Boogaloo',cursive;font-size:.34em;line-height:.9;transform:rotate(-25deg);box-shadow:none;-webkit-text-stroke:0;text-shadow:none}
+.shuffle-hands-symbol::before{content:'☞ ☜';position:absolute;top:13%;left:0;right:0;font-size:1.9em;color:#222}
+.shuffle-hands-symbol span{display:block;margin-top:28%;transform:rotate(-8deg)}
+.shuffle-corner{position:absolute;z-index:3;width:21px;height:21px;border-radius:50%;border:1.5px solid #f4f4ee;overflow:hidden;background:conic-gradient(#eccc00 0 25%,#1165b4 0 50%,#df0909 0 75%,#2c961c 0)}
 .player-card .shuffle-corner{width:16px;height:16px;border-width:1px}
 .shuffle-corner.tl{top:8px;left:8px}
 .shuffle-corner.br{right:8px;bottom:8px}
 .player-card .shuffle-corner.tl{top:6px;left:6px}
 .player-card .shuffle-corner.br{right:6px;bottom:6px}
-.card-swaphands::before{
-  inset:8px -16px;
-  border:0;
-  background:#f4f4ee;
-}
-.swap-hands-symbol{
-  position:relative;
-  z-index:2;
-  width:72%;
-  height:72%;
-  border-radius:50%;
-  background:#f4f4ee;
-  color:#242424;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-family:'Boogaloo',cursive;
-  transform:rotate(-25deg);
-  -webkit-text-stroke:0;
-  text-shadow:none;
-}
-.swap-hands-symbol::before,
-.swap-hands-symbol::after{
-  content:'';
-  position:absolute;
-  width:22%;
-  height:28%;
-  border:2px solid #222;
-  border-radius:4px;
-  background:#f4f4ee;
-  box-shadow:7px 4px 0 -2px #f4f4ee,7px 4px 0 0 #222;
-}
+
+/* Swap hands */
+.card-swaphands::before{inset:8% -16%;border:0;background:#f4f4ee}
+.swap-hands-symbol{position:relative;z-index:2;width:72%;height:72%;border-radius:50%;background:#f4f4ee;color:#242424;display:flex;align-items:center;justify-content:center;font-family:'Boogaloo',cursive;transform:rotate(-25deg);-webkit-text-stroke:0;text-shadow:none}
+.swap-hands-symbol::before,.swap-hands-symbol::after{content:'';position:absolute;width:22%;height:28%;border:2px solid #222;border-radius:4px;background:#f4f4ee;box-shadow:7px 4px 0 -2px #f4f4ee,7px 4px 0 0 #222}
 .swap-hands-symbol::before{left:24%;top:31%;transform:rotate(-18deg)}
 .swap-hands-symbol::after{right:24%;top:38%;transform:rotate(16deg)}
-.player-card .swap-hands-symbol::before,
-.player-card .swap-hands-symbol::after{border-width:1.5px;border-radius:3px}
-.swap-hands-symbol span{
-  position:absolute;
-  z-index:3;
-  color:#242424;
-  font-size:.38em;
-  font-weight:900;
-  line-height:.9;
-  text-align:center;
-  -webkit-text-stroke:0;
-  text-shadow:none;
-}
+.player-card .swap-hands-symbol::before,.player-card .swap-hands-symbol::after{border-width:1.5px;border-radius:3px}
+.swap-hands-symbol span{position:absolute;z-index:3;color:#242424;font-size:.38em;font-weight:900;line-height:.9;text-align:center;-webkit-text-stroke:0;text-shadow:none}
 .top-card .swap-hands-symbol span{font-size:.42em}
 .swap-hands-symbol .swap-label-left{left:10%;bottom:24%;transform:rotate(20deg)}
 .swap-hands-symbol .swap-label-right{right:10%;top:24%;transform:rotate(200deg)}
 .player-card .swap-hands-symbol .swap-label-left{left:8%;bottom:21%}
 .player-card .swap-hands-symbol .swap-label-right{right:8%;top:21%}
+
+/* Small hand card adjustments */
+.hand-cards.hand-many .player-card,.hand-cards.hand-full .player-card{border-radius:6px;border-width:2px}
+.hand-cards.hand-many .player-card::before,.hand-cards.hand-full .player-card::before{inset:8% -14%}
+.hand-cards.hand-many .player-card .card-corner,.hand-cards.hand-full .player-card .card-corner{min-width:8px;-webkit-text-stroke:.6px #111;text-shadow:1px 1px 0 #111}
+.hand-cards.hand-many .player-card .card-corner.tl,.hand-cards.hand-full .player-card .card-corner.tl{top:2px;left:3px}
+.hand-cards.hand-many .player-card .card-corner.br,.hand-cards.hand-full .player-card .card-corner.br{bottom:2px;right:3px}
+.hand-cards.hand-many .player-card .card-value,.hand-cards.hand-many .player-card .card-symbol,.hand-cards.hand-full .player-card .card-value,.hand-cards.hand-full .player-card .card-symbol{-webkit-text-stroke:1px #111;text-shadow:1.4px 1.8px 0 rgba(0,0,0,.78)}
+.hand-cards.hand-many .shuffle-hands-symbol span,.hand-cards.hand-many .swap-hands-symbol span,.hand-cards.hand-full .shuffle-hands-symbol span,.hand-cards.hand-full .swap-hands-symbol span{font-size:.28em}
+.hand-cards.hand-full .player-card.playable:hover{transform:translateY(-8px) rotate(-3deg) scale(1.04)}
+.hand-cards.hand-fit .player-card.playable:hover{transform:translateY(-6px) rotate(-2deg) scale(1.03)}
 
 /* ACTION BUTTONS */
 .action-btns{display:flex;gap:clamp(5px,1.5vw,9px);justify-content:center;flex-shrink:0;flex-wrap:wrap;padding:0 4px}
@@ -921,6 +841,7 @@ let gameState = null, players = [], pendingCard = null, pendingCardEl = null;
 let chatOpen = false, unreadChat = 0;
 let winsNeeded = 1, wins = {}, roundNumber = 1, bots = {};
 let turnTimerInterval=null, serverClockOffset=0, lastTickSecond=null, timeoutRequestedForTurn='';
+let resizeRenderTimer=null;
 
 // Wins needed info
 const WINS_INFO = { 4: 1, 8: 3, 13: 5 };
@@ -1460,6 +1381,8 @@ function renderGame(){
   const hand=gameState.myHand;
   document.getElementById('hand-count').textContent=hand.length;
   const handEl=document.getElementById('hand-cards');
+  handEl.classList.toggle('hand-many',hand.length>=18&&hand.length<26);
+  handEl.classList.toggle('hand-full',hand.length>=26);
   handEl.innerHTML='';
   hand.forEach((card,i)=>{
     const playable=isMyTurn&&canPlayCard(card,tc,cc,gameState.drawStack,hr);
