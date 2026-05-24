@@ -211,7 +211,6 @@ function scheduleBotTurn(room, code) {
       result = drawCard(room.game, cp);
     }
 
-    room.game.unoCalled[cp] = false;
     const botName = room.players.find(p => p.id === cp)?.name || 'Bot';
     const action = {
       type: move && !result.drewStack ? 'play' : 'draw',
@@ -285,6 +284,8 @@ function handleRoundEnd(room, code) {
       });
     }
     room.started = false;
+    room.game = null;
+    room.pendingSwap = null;
     clearTurnTimer(room);
     return;
   }
@@ -310,7 +311,14 @@ io.on('connection', (socket) => {
       bots: {},
       settings: {
         startingCards: 7,
-        houseRules: { stackDraw: true, jumpIn: false, sevenSwap: false, zeroRotate: false, wrongCardPenalty: true }
+        houseRules: {
+          stackDraw: false,
+          jumpIn: false,
+          sevenSwap: false,
+          zeroRotate: false,
+          wrongCardPenalty: false,
+          specialWilds: false,
+        }
       }
     };
     socket.join(code);
@@ -353,8 +361,20 @@ io.on('connection', (socket) => {
       if (!room.pendingSwap && !room.game.winner && currentPlayer(room.game) === socket.id) startTurnTimer(room, code);
       return;
     }
-    if (room.players.length >= 13) return socket.emit('error', { message: 'Room is full (max 13)' });
-    room.players.push({ id: socket.id, name });
+    const sameNameSeat = room.players.find(p => normalizeName(p.name) === normalizeName(name));
+    if (!sameNameSeat && room.players.length >= 13) return socket.emit('error', { message: 'Room is full (max 13)' });
+    if (sameNameSeat) {
+      const oldId = sameNameSeat.id;
+      sameNameSeat.id = socket.id;
+      sameNameSeat.name = name;
+      if (room.wins && Object.prototype.hasOwnProperty.call(room.wins, oldId)) {
+        room.wins[socket.id] = room.wins[oldId];
+        delete room.wins[oldId];
+      }
+      delete room.bots[oldId];
+    } else {
+      room.players.push({ id: socket.id, name });
+    }
     socket.join(code);
     socket.data.roomCode = code;
     socket.data.name = name;
@@ -409,7 +429,6 @@ io.on('connection', (socket) => {
       }
       return;
     }
-    room.game.unoCalled[socket.id] = false;
     startTurnTimer(room, code);
     broadcastState(room, {
       type: 'play',
@@ -480,7 +499,8 @@ io.on('connection', (socket) => {
     const code = socket.data.roomCode;
     const room = rooms[code];
     if (!room || !room.game) return;
-    callUno(room.game, socket.id);
+    const result = callUno(room.game, socket.id);
+    if (result.error) return socket.emit('error', { message: result.error });
     io.to(code).emit('uno_called', { playerId: socket.id, name: socket.data.name });
   });
 

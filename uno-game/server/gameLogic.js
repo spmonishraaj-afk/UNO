@@ -1,7 +1,7 @@
 const COLORS = ['red', 'green', 'blue', 'yellow'];
 const ACTIONS = ['skip','reverse','draw2'];
 
-function createDeck() {
+function createDeck(includeSpecialWilds = false) {
   const deck = [];
   for (const color of COLORS) {
     deck.push({ color, value: '0', type: 'number' });
@@ -17,8 +17,10 @@ function createDeck() {
   for (let i = 0; i < 4; i++) {
     deck.push({ color: 'wild', value: 'wild', type: 'wild' });
     deck.push({ color: 'wild', value: 'wild4', type: 'wild' });
-    deck.push({ color: 'wild', value: 'shuffleHands', type: 'wild' });
-    deck.push({ color: 'wild', value: 'swapHands', type: 'wild' });
+    if (includeSpecialWilds) {
+      deck.push({ color: 'wild', value: 'shuffleHands', type: 'wild' });
+      deck.push({ color: 'wild', value: 'swapHands', type: 'wild' });
+    }
   }
   return shuffle(deck);
 }
@@ -53,10 +55,19 @@ function playerHasStackCard(state, playerId) {
 }
 
 function createGame(playerIds, startingCards = 7, houseRules = {}) {
-  let fullDeck = createDeck();
+  const rules = {
+    stackDraw: false,
+    jumpIn: false,
+    sevenSwap: false,
+    zeroRotate: false,
+    wrongCardPenalty: false,
+    specialWilds: false,
+    ...houseRules,
+  };
+  let fullDeck = createDeck(rules.specialWilds);
   const totalNeeded = playerIds.length * startingCards + 20;
   while (fullDeck.length < totalNeeded) {
-    fullDeck = shuffle([...fullDeck, ...createDeck()]);
+    fullDeck = shuffle([...fullDeck, ...createDeck(rules.specialWilds)]);
   }
   const hands = {};
   for (const id of playerIds) {
@@ -80,14 +91,7 @@ function createGame(playerIds, startingCards = 7, houseRules = {}) {
     drawStackType: null,
     unoCalled: {},
     winner: null,
-    houseRules: {
-      stackDraw: true,
-      jumpIn: false,
-      sevenSwap: false,
-      zeroRotate: false,
-      wrongCardPenalty: true,
-      ...houseRules,
-    },
+    houseRules: rules,
     startingCards,
   };
 }
@@ -120,6 +124,7 @@ function drawCards(state, playerId, count) {
     if (state.deck.length > 0) drawn.push(state.deck.pop());
   }
   state.hands[playerId].push(...drawn);
+  if (drawn.length > 0 && state.unoCalled) state.unoCalled[playerId] = false;
   return drawn;
 }
 
@@ -133,7 +138,20 @@ function rotateHands(state) {
     const first = snap.shift();
     snap.push(first);
   }
-  order.forEach((id, i) => { state.hands[id] = snap[i]; });
+  order.forEach((id, i) => {
+    state.hands[id] = snap[i];
+    state.unoCalled[id] = false;
+  });
+}
+
+function shuffleHands(state) {
+  const order = state.playerOrder;
+  const counts = order.map(id => state.hands[id].length);
+  const cards = shuffle(order.flatMap(id => state.hands[id]));
+  order.forEach((id, i) => {
+    state.hands[id] = cards.splice(0, counts[i]);
+    state.unoCalled[id] = false;
+  });
 }
 
 function playCard(state, playerId, cardIndex, chosenColor) {
@@ -158,7 +176,9 @@ function playCard(state, playerId, cardIndex, chosenColor) {
     return { error: 'Cannot play that card' };
   }
 
+  const alreadyCalledUno = !!state.unoCalled[playerId];
   hand.splice(cardIndex, 1);
+  state.unoCalled[playerId] = hand.length === 1 && alreadyCalledUno;
   state.discard.push(card);
 
   if (card.type === 'wild') {
@@ -190,7 +210,7 @@ function playCard(state, playerId, cardIndex, chosenColor) {
     if (state.houseRules.stackDraw) { state.drawStack += 4; state.drawStackType = 'wild4'; advanceTurn(state); }
     else { drawCards(state, state.playerOrder[nextIndex(state)], 4); advanceTurn(state, 1); }
   } else if (card.value === 'shuffleHands') {
-    rotateHands(state);
+    shuffleHands(state);
     advanceTurn(state);
     return { success: true, card, state, shuffledHands: true };
   } else if (card.value === 'swapHands') {
@@ -216,10 +236,12 @@ function drawCard(state, playerId) {
     state.drawStack = 0;
     state.drawStackType = null;
     drawCards(state, playerId, count);
+    state.unoCalled[playerId] = false;
     advanceTurn(state);
     return { success: true, drewStack: count, state };
   }
   const drawn = drawCards(state, playerId, 1);
+  state.unoCalled[playerId] = false;
   const card = drawn[0];
   const playable = card && canPlay(card, getTopCard(state), state.currentColor);
   if (!playable) advanceTurn(state);
@@ -233,10 +255,12 @@ function autoDrawForTimeout(state, playerId) {
     state.drawStack = 0;
     state.drawStackType = null;
     drawCards(state, playerId, count);
+    state.unoCalled[playerId] = false;
     advanceTurn(state);
     return { success: true, drewStack: count, state };
   }
   const drawn = drawCards(state, playerId, 1);
+  state.unoCalled[playerId] = false;
   advanceTurn(state);
   return { success: true, card: drawn[0], timedOut: true, state };
 }
@@ -258,10 +282,14 @@ function swapHands(state, playerId, targetId) {
   const tmp = state.hands[playerId];
   state.hands[playerId] = state.hands[targetId];
   state.hands[targetId] = tmp;
+  state.unoCalled[playerId] = false;
+  state.unoCalled[targetId] = false;
   return { success: true, state };
 }
 
 function callUno(state, playerId) {
+  const hand = state.hands[playerId] || [];
+  if (hand.length > 2) return { error: 'You can only call UNO when you have one or two cards.' };
   state.unoCalled[playerId] = true;
   return { success: true };
 }
